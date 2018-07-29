@@ -1,5 +1,11 @@
 # zmvc-server
 
+## Installation
+
+```bash
+npm install zmvc-server
+```
+
 ## Basic Usage
 
 ```js
