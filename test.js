@@ -1,9 +1,4 @@
-# zmvc-server
-
-## Basic Usage
-
-```js
-const zmvc = require('zmvc-server');
+const zmvc = require('./bin/server');
 
 // instantiate server and get MVC object
 const server = new zmvc.ZMVCServer();
@@ -44,4 +39,3 @@ server.listen(3000, (err) => {
         console.log('Server started on ', 'http://localhost:3000');
     }
 });
-```

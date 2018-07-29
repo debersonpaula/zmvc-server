@@ -1,0 +1,33 @@
+{
+  "name": "zmvc-server",
+  "version": "0.0.1",
+  "description": "MVC Server",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "build": "tsc -d"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/debersonpaula/zmvc-server.git"
+  },
+  "keywords": [
+    "MVC",
+    "Server",
+    "Node",
+    "HTTP"
+  ],
+  "author": "D.A.Paula",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/debersonpaula/zmvc-server/issues"
+  },
+  "homepage": "https://github.com/debersonpaula/zmvc-server#readme",
+  "devDependencies": {
+    "@types/jest": "^23.3.0",
+    "@types/node": "^10.5.2",
+    "jest": "^23.4.1",
+    "ts-jest": "^23.0.1",
+    "typescript": "^2.9.2"
+  }
+}
