@@ -12,6 +12,7 @@ export interface IRequest {
     query?: any;
     headers?: any;
     body?: any;
+    data?: any;
 }
 export declare class ZMVCServer {
     private _server;
@@ -29,6 +30,7 @@ export declare class ZMVCServer {
      */
     stop(callback?: Function): void;
     private _requestListener;
+    private _findRoute;
     private _executeRoutes;
     /**
      * Get MVC Object
@@ -56,7 +58,7 @@ export declare class TList<ListType> {
 export declare class TControllers extends TList<TController> {
     private _mvc;
     constructor(mvcOwner: TMVC);
-    add(method: string, path: string, model?: string, view?: string): TController;
+    add(method: string, path: string, model?: string, view?: string, middlewares?: TMiddlewares): TController;
     get(path: string, model?: string, view?: string): TController;
     post(path: string, model?: string, view?: string): TController;
 }
@@ -64,12 +66,22 @@ export declare class TController {
     private _owner;
     private _model?;
     private _view?;
+    private _middlewares;
     private _name;
-    constructor(owner: TControllers, name: string, model?: IModel, view?: IView);
+    /**
+     * Instantiate TController component
+     * @param owner Object that holds controllers
+     * @param name Name of Controller, also hold the route that calls the controller
+     * @param model Data Model
+     * @param view Data Serialization
+     * @param middleware
+     */
+    constructor(owner: TControllers, name: string, model?: IModel, view?: IView, middlewares?: TMiddlewares);
     add(method: string, path: string, model?: string, view?: string): TController;
     get(path: string, model?: string, view?: string): TController;
     post(path: string, model?: string, view?: string): TController;
     exec(request: IRequest): Promise<any>;
+    readonly middlewares: TMiddlewares;
 }
 export declare class TModels extends TList<IModel> {
     add(name: string, data: IModel): IModel;
@@ -82,4 +94,12 @@ export declare class TViews extends TList<IView> {
 }
 export interface IView {
     handler: (data: any, request: IRequest) => any;
+}
+export declare class TMiddlewares {
+    list: IMiddleware[];
+    add(data: IMiddleware): void;
+    exec(request: IRequest, response: IResponse, callback: (request: IRequest) => void): void;
+}
+export interface IMiddleware {
+    handler: (request: IRequest, response: IResponse, next: () => void) => void;
 }

@@ -2,6 +2,7 @@ import * as http from 'http';
 import * as urlTool from 'url';
 import * as querystring from 'querystring';
 import { ServerResponse } from 'http';
+import { request } from 'https';
 
 export interface IResponse extends ServerResponse {
     sendJSON: (status: number, data: any) => void
@@ -15,6 +16,7 @@ export interface IRequest {
     query?: any;
     headers?: any;
     body?: any;
+    data?: any;
 }
 
 export class ZMVCServer {
@@ -85,16 +87,18 @@ export class ZMVCServer {
 
     }
 
-    private _executeRoutes(res: IResponse, request: IRequest) {
-        const { route, method } = request;
+    private _executeRoutes(res: IResponse, req: IRequest) {
+        const { route, method } = req;
         if (this._mvc.controller.count) {
             const controller = this._mvc.controller.items(`${method}:${route}`);
             if (controller) {
-                controller.exec(request).then(data => {
-                    res.sendJSON(200, data);
-                }).catch(error => {
-                    res.sendJSON(500, error);
-                })
+                controller.middlewares.exec(req, res, (request) => {
+                    controller.exec(request).then(data => {
+                        res.sendJSON(200, data);
+                    }).catch(error => {
+                        res.sendJSON(500, error);
+                    })
+                });
             } else {
                 res.sendJSON(404, { error: `Route ${method}:${route} does not exists.` });
             }
@@ -159,11 +163,11 @@ export class TControllers extends TList<TController> {
         super();
         this._mvc = mvcOwner;
     }
-    public add(method: string, path: string, model?: string, view?: string): TController {
+    public add(method: string, path: string, model?: string, view?: string, middlewares?: TMiddlewares): TController {
         const route = `${path}`;
         const getModel = this._mvc.model.items(model || '');
         const getView = this._mvc.view.items(view || '');
-        const item = new TController(this, route, getModel, getView);
+        const item = new TController(this, route, getModel, getView, middlewares);
         this._add(`${method}:${route}`, item);
         return item;
     }
@@ -178,16 +182,29 @@ export class TController {
     private _owner: TControllers;
     private _model?: IModel;
     private _view?: IView;
+    private _middlewares: TMiddlewares;
     private _name: string;
-    constructor(owner: TControllers, name: string, model?: IModel, view?: IView) {
+    /**
+     * Instantiate TController component
+     * @param owner Object that holds controllers
+     * @param name Name of Controller, also hold the route that calls the controller
+     * @param model Data Model
+     * @param view Data Serialization
+     * @param middleware
+     */
+    constructor(owner: TControllers, name: string, model?: IModel, view?: IView, middlewares?: TMiddlewares) {
         this._owner = owner;
         this._name = name;
         this._model = model;
         this._view = view;
+        this._middlewares = new TMiddlewares;
+        if (middlewares) {
+            this._middlewares.list = this._middlewares.list.concat(middlewares.list);
+        }
     }
     public add(method: string, path: string, model?: string, view?: string): TController {
         const route = `${this._name}${path}`;
-        return this._owner.add(method, route, model, view);
+        return this._owner.add(method, route, model, view, this._middlewares);
     }
     public get(path: string, model?: string, view?: string): TController {
         return this.add('GET', path, model, view);
@@ -206,6 +223,9 @@ export class TController {
         } else {
             return Promise.reject({ error: 'view and model not defined for this route' });
         }
+    }
+    public get middlewares(): TMiddlewares {
+        return this._middlewares;
     }
 }
 /*------------------------------------------------------------------------------------*/
@@ -227,6 +247,28 @@ export class TViews extends TList<IView> {
 }
 export interface IView {
     handler: (data: any, request: IRequest) => any;
+}
+/*------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*/
+export class TMiddlewares {
+    public list: IMiddleware[] = [];
+    public add(data: IMiddleware) {
+        this.list.unshift(data);
+    }
+    public exec(request: IRequest, response: IResponse, callback: (request: IRequest) => void) {
+        const count = this.list.length;
+        let previous = () => callback(request);
+        for (let i = 0; i < count; i++) {
+            const next = previous;
+            previous = () => {
+                this.list[i].handler(request, response, next);
+            }
+        }
+        previous();
+    }
+}
+export interface IMiddleware {
+    handler: (request: IRequest, response: IResponse, next: () => void) => void;
 }
 /*------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------*/

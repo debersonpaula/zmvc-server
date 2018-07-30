@@ -71,15 +71,19 @@ var ZMVCServer = /** @class */ (function () {
             });
         });
     };
-    ZMVCServer.prototype._executeRoutes = function (res, request) {
-        var route = request.route, method = request.method;
+    ZMVCServer.prototype._findRoute = function (res, req) {
+    };
+    ZMVCServer.prototype._executeRoutes = function (res, req) {
+        var route = req.route, method = req.method;
         if (this._mvc.controller.count) {
-            var controller = this._mvc.controller.items(method + ":" + route);
-            if (controller) {
-                controller.exec(request).then(function (data) {
-                    res.sendJSON(200, data);
-                }).catch(function (error) {
-                    res.sendJSON(500, error);
+            var controller_1 = this._mvc.controller.items(method + ":" + route);
+            if (controller_1) {
+                controller_1.middlewares.exec(req, res, function (request) {
+                    controller_1.exec(request).then(function (data) {
+                        res.sendJSON(200, data);
+                    }).catch(function (error) {
+                        res.sendJSON(500, error);
+                    });
                 });
             }
             else {
@@ -167,11 +171,11 @@ var TControllers = /** @class */ (function (_super) {
         _this._mvc = mvcOwner;
         return _this;
     }
-    TControllers.prototype.add = function (method, path, model, view) {
+    TControllers.prototype.add = function (method, path, model, view, middlewares) {
         var route = "" + path;
         var getModel = this._mvc.model.items(model || '');
         var getView = this._mvc.view.items(view || '');
-        var item = new TController(this, route, getModel, getView);
+        var item = new TController(this, route, getModel, getView, middlewares);
         this._add(method + ":" + route, item);
         return item;
     };
@@ -185,15 +189,27 @@ var TControllers = /** @class */ (function (_super) {
 }(TList));
 exports.TControllers = TControllers;
 var TController = /** @class */ (function () {
-    function TController(owner, name, model, view) {
+    /**
+     * Instantiate TController component
+     * @param owner Object that holds controllers
+     * @param name Name of Controller, also hold the route that calls the controller
+     * @param model Data Model
+     * @param view Data Serialization
+     * @param middleware
+     */
+    function TController(owner, name, model, view, middlewares) {
         this._owner = owner;
         this._name = name;
         this._model = model;
         this._view = view;
+        this._middlewares = new TMiddlewares;
+        if (middlewares) {
+            this._middlewares.list = this._middlewares.list.concat(middlewares.list);
+        }
     }
     TController.prototype.add = function (method, path, model, view) {
         var route = "" + this._name + path;
-        return this._owner.add(method, route, model, view);
+        return this._owner.add(method, route, model, view, this._middlewares);
     };
     TController.prototype.get = function (path, model, view) {
         return this.add('GET', path, model, view);
@@ -215,6 +231,13 @@ var TController = /** @class */ (function () {
             return Promise.reject({ error: 'view and model not defined for this route' });
         }
     };
+    Object.defineProperty(TController.prototype, "middlewares", {
+        get: function () {
+            return this._middlewares;
+        },
+        enumerable: true,
+        configurable: true
+    });
     return TController;
 }());
 exports.TController = TController;
@@ -244,5 +267,32 @@ var TViews = /** @class */ (function (_super) {
     return TViews;
 }(TList));
 exports.TViews = TViews;
+/*------------------------------------------------------------------------------------*/
+/*------------------------------------------------------------------------------------*/
+var TMiddlewares = /** @class */ (function () {
+    function TMiddlewares() {
+        this.list = [];
+    }
+    TMiddlewares.prototype.add = function (data) {
+        this.list.unshift(data);
+    };
+    TMiddlewares.prototype.exec = function (request, response, callback) {
+        var _this = this;
+        var count = this.list.length;
+        var previous = function () { return callback(request); };
+        var _loop_1 = function (i) {
+            var next = previous;
+            previous = function () {
+                _this.list[i].handler(request, response, next);
+            };
+        };
+        for (var i = 0; i < count; i++) {
+            _loop_1(i);
+        }
+        previous();
+    };
+    return TMiddlewares;
+}());
+exports.TMiddlewares = TMiddlewares;
 /*------------------------------------------------------------------------------------*/
 /*------------------------------------------------------------------------------------*/ 
